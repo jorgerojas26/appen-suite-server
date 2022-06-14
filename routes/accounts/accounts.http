@@ -1,0 +1,32 @@
+GET http://localhost:8080/accounts
+
+GET http://localhost:8080/stop
+
+PUT http://localhost:8080/accounts/61e46a0b1727dfecbf168f01
+Content-Type: application/json
+
+{
+  "email": "fluby87555@hotmail.com",
+  "password": "Jj2039908586ramon%",
+  "status": "active"
+}
+
+DELETE http://localhost:8080/accounts/6220040c0cef943386a46ed6
+
+POST http://localhost:8080/accounts
+Content-Type: application/json
+
+{
+  "email": "haltamahal@gmail.com",
+  "password": "Usecheuseche09$"
+}
+
+POST http://localhost:8080/start
+Content-Type: application/json
+
+{
+  "scraping_email": "fluby87555@hotmail.com",
+  "scraping_delay": 1000
+}
+
+

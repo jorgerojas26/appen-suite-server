@@ -1,0 +1,8 @@
+GET http://localhost:8080/favorites
+
+POST http://localhost:8080/favorites
+Content-Type: application/json
+
+{
+  "name": "transcribe data"
+}
