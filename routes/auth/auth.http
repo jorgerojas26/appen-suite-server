@@ -1,0 +1,14 @@
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+{
+  "email": "jorgeluisrojasb@gmail.com",
+  "password": "123456"
+}
+
+POST http://localhost:8080/auth/register
+Content-Type: application/json
+
+{
+  "email": "jorgeluisrojasb@gmail.com",
+  "password": "123456"
+}

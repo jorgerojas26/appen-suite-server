@@ -1,10 +1,13 @@
 import Account from '../models/account.js';
+import User from '../models/user.js';
 import Favorite from '../models/favorite.js';
 
 const GET_ACCOUNTS = async (req, res) => {
     try {
-        const accounts = await Account.find({}).populate('favorites');
-        res.status(200).json(accounts);
+        const accounts = await User.findOne({ _id: req.auth.user.id })
+            .populate({ path: 'accounts', populate: { path: 'favorites' } })
+            .select('-_id accounts');
+        res.status(200).json(accounts.accounts);
     } catch (error) {
         res.status(500).json({
             error: error.message,
@@ -31,6 +34,8 @@ const CREATE_ACCOUNT = async (req, res) => {
         // }
 
         await account.save();
+
+        await User.updateOne({ _id: req.auth.user.id }, { $push: { accounts: account._id } });
         res.status(200).json(account);
     } catch (error) {
         res.status(500).json({ error: { message: error.message } });

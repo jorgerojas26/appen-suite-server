@@ -3,7 +3,7 @@ import Account from '../models/account.js';
 
 const GET_FAVORITES = async (req, res) => {
     try {
-        const favorites = await Favorite.find();
+        const favorites = await Favorite.find({ userId: req.auth.user.id });
         res.status(200).json(favorites);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -12,7 +12,7 @@ const GET_FAVORITES = async (req, res) => {
 
 const CREATE_FAVORITE = async (req, res) => {
     try {
-        const favorite = new Favorite({ name: req.body.name, status: req.body.status });
+        const favorite = new Favorite({ name: req.body.name, status: req.body.status, userId: req.auth.user.id });
         const newFavorite = await favorite.save();
 
         await Account.updateMany({}, { $push: { favorites: newFavorite._id } });

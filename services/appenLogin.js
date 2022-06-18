@@ -79,7 +79,8 @@ export const appenLoginWithRetry = async account => {
         } else {
             console.log('Account ' + account.email + ' is inactive');
             account.status = 'inactive';
-            account.loginAttempts = 0;
+            //account.loginAttempts = 0;
+            account.loggingIn = false;
         }
         return login_response;
     } else {

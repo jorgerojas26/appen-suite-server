@@ -2,9 +2,13 @@ import { CONTRIBUTOR_IFRAME_URL } from '../constants.js';
 import { appenLoginWithRetry } from './appenLogin.js';
 import { JSDOM } from 'jsdom';
 
-export const GET_APPEN_TASK_LIST = async (account, req) => {
+export const GET_APPEN_TASK_LIST = async (account, req, userId) => {
     if (!req.app.locals.iframe_url) {
-        await get_new_iframe_url(account, req);
+        const iframe_url = await get_new_iframe_url(account, req);
+        if (!iframe_url && account.loginAttempts === 3) {
+            req.app.locals.accounts_info[userId].scraping_stopped = true;
+            return [];
+        }
         return GET_APPEN_TASK_LIST(account, req);
     }
 
@@ -16,12 +20,12 @@ export const GET_APPEN_TASK_LIST = async (account, req) => {
     }
 
     if (taskListResponse.response?.status === 403) {
-        console.log('iframe url expired');
         await get_new_iframe_url(account, req);
         return GET_APPEN_TASK_LIST(account, req);
     }
 
     const task_list = extract_task_list(taskListResponse.data);
+
     return task_list;
 };
 

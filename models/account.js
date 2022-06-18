@@ -9,12 +9,12 @@ const accountSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Favorite' }],
     status: {
         type: String,
         required: true,
         default: 'active',
     },
-    favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Favorite', default: [] }],
     createdAt: {
         type: Date,
         default: Date.now,

@@ -1,4 +1,5 @@
 import Account from '../models/account.js';
+import User from '../models/user.js';
 import fs from 'fs';
 import axios from 'axios';
 import axiosCookieJarSupport from 'axios-cookiejar-support';
@@ -42,15 +43,19 @@ const createSessionForEachAccount = accounts => {
     }
 };
 
-export const setupAppenAccounts = async req => {
+export const setupAppenAccounts = async userId => {
     try {
-        let accounts = await Account.find({}).populate('favorites');
+        const userAccounts = await User.findOne({ _id: userId }).populate({ path: 'accounts', populate: 'favorites' }).select('accounts');
+
+        let accounts = userAccounts.accounts;
+
         readOrCreateCookiesFileForEachAccount(accounts);
 
         accounts = accounts.map(account => {
             return {
                 ...account.toObject(),
                 current_collecting_tasks: [],
+                loginAttempts: 0,
                 start_collecting: function ({ id, name, level, payout, url }) {
                     const taskExists = this.current_collecting_tasks.find(task => task.id === id);
                     const collect = this.collect;
