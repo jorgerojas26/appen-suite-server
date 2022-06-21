@@ -8,6 +8,7 @@ import cors from 'cors';
 import accountsRoutes from './routes/accounts/accounts.js';
 import favoritesRoutes from './routes/favorites/favorites.js';
 import authRoutes from './routes/auth/auth.js';
+import proxyRoutes from './routes/proxies/proxies.js';
 
 import { expressjwt as jwt } from 'express-jwt';
 
@@ -28,11 +29,20 @@ app.use('/auth', authRoutes);
 
 app.use('/accounts', accountsRoutes);
 app.use('/favorites', favoritesRoutes);
+app.use('/proxies', proxyRoutes);
 
 app.post('/start', async (req, res) => {
     const { scraping_email, scraping_delay } = req.body;
 
     const userId = req.auth.user.id;
+
+    if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId]) {
+        const scraping_stopped = req.app.locals.accounts_info[userId].scraping_stopped;
+
+        if (scraping_stopped === null || scraping_stopped === undefined || scraping_stopped === false) {
+            return res.status(200).json({ success: true });
+        }
+    }
 
     if (!scraping_email || !scraping_delay) return res.status(400).send({ error: 'Missing parameters' });
     if (scraping_delay < 500) return res.status(400).send({ error: 'Delay must be greater than 500ms' });
@@ -46,6 +56,10 @@ app.post('/start', async (req, res) => {
         scraping_delay,
         task_list: [],
     };
+
+    if (req.app.locals.accounts_info[userId].scraping_stopped === false) {
+        return res.status(200).json({ success: true });
+    }
 
     if (!req.app.locals.accounts_info[userId].accounts) {
         req.app.locals.accounts_info[userId].accounts = await setupAppenAccounts(req.auth.user.id);
@@ -69,7 +83,26 @@ app.post('/start', async (req, res) => {
 
         const task_list = await GET_APPEN_TASK_LIST(scraping_account, req, userId);
 
-        req.app.locals.accounts_info[userId].task_list = task_list;
+        req.app.locals.accounts_info[userId].task_list = task_list.map(task => {
+            const id = task[0];
+            const name = task[1];
+            const numberOfTasks = task[4];
+            const level = task[2];
+            const payout = task[3];
+            const secret = task[12];
+            const rating = task[7];
+            const url = `https://account.appen.com/channels/feca/tasks/${id}?secret=${secret}`;
+
+            return {
+                id,
+                jobTitle: name,
+                url,
+                level,
+                pay: payout,
+                numOfTasks: numberOfTasks,
+                rating,
+            };
+        });
 
         task_list.forEach(task => {
             const id = task[0];
@@ -110,18 +143,28 @@ app.post('/start', async (req, res) => {
 app.get('/stop', (req, res) => {
     const userId = req.auth.user.id;
 
-    req.app.locals.accounts_info[userId].scraping_stopped = true;
-    req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
-        account.current_collecting_tasks.forEach(task => task.pause());
-        return account;
-    });
+    console.log('Stopping scraping...');
 
-    res.status(200).json({ success: true });
+    if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId]) {
+        req.app.locals.accounts_info[userId].scraping_stopped = true;
+        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
+            account.current_collecting_tasks.forEach(task => task.pause());
+            return account;
+        });
+
+        res.status(200).json({ success: true });
+    } else {
+        res.status(400).json({ error: 'No scraping is running' });
+    }
 });
 
 app.get('/status', (req, res) => {
     const userId = req.auth.user.id;
-    res.status(200).json(req.app.locals.accounts_info[userId]);
+    if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId]) {
+        res.status(200).json(req.app.locals.accounts_info[userId]);
+    } else {
+        res.status(400).json({ error: 'No scraping is running' });
+    }
 });
 
 app.listen(8080, () => {
