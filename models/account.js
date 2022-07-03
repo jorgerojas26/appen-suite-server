@@ -15,6 +15,11 @@ const accountSchema = new mongoose.Schema({
         required: true,
         default: 'active',
     },
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+    },
     createdAt: {
         type: Date,
         default: Date.now,

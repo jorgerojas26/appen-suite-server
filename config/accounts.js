@@ -1,5 +1,6 @@
 import Account from '../models/account.js';
 import User from '../models/user.js';
+import Proxy from '../models/proxy.js';
 import fs from 'fs';
 import axios from 'axios';
 import axiosCookieJarSupport from 'axios-cookiejar-support';
@@ -43,11 +44,12 @@ const createSessionForEachAccount = accounts => {
     }
 };
 
-export const setupAppenAccounts = async userId => {
-    try {
-        const userAccounts = await User.findOne({ _id: userId }).populate({ path: 'accounts', populate: 'favorites' }).select('accounts');
+export const setupAppenAccounts = async req => {
+    const userId = req.auth.user.id;
 
-        let accounts = userAccounts.accounts;
+    try {
+        let accounts = await Account.find({ userId }).populate('favorites');
+        const proxies = await Proxy.find({ userId });
 
         readOrCreateCookiesFileForEachAccount(accounts);
 
@@ -55,6 +57,7 @@ export const setupAppenAccounts = async userId => {
             return {
                 ...account.toObject(),
                 current_collecting_tasks: [],
+                tasks_waiting_for_resolution: [],
                 loginAttempts: 0,
                 start_collecting: function ({ id, name, level, payout, url }) {
                     const taskExists = this.current_collecting_tasks.find(task => task.id === id);
@@ -74,7 +77,9 @@ export const setupAppenAccounts = async userId => {
                             status: 'collecting',
                             fetch_count: 0,
                             pause: function () {
-                                this.status = 'paused';
+                                if (this.status === 'collecting') {
+                                    this.status = 'paused';
+                                }
                             },
                             resume: function () {
                                 this.status = 'collecting';
@@ -88,11 +93,12 @@ export const setupAppenAccounts = async userId => {
                     this.collect.call(this, id);
                 },
                 collect: async function (id) {
-                    const { name, url } = this.current_collecting_tasks.find(task => task.id === id);
+                    const { name, url, ...other } = this.current_collecting_tasks.find(task => task.id === id);
 
                     try {
-                        const { data, config } = await this.axiosInstance.get(url);
-                        const response_url = config.url;
+                        const response = await this.axiosInstance.get(url);
+                        const { data } = response;
+                        const response_url = response.request.res.responseUrl;
 
                         if (response_url === 'https://account.appen.com/sessions/new') {
                             console.log(`Account ${this.email} is not logged in. Trying to login...`);
@@ -104,7 +110,26 @@ export const setupAppenAccounts = async userId => {
                             }
                         } else if (response_url.includes('view.appen.io')) {
                             // TODO: Send task to the browser
-                            this.current_collecting_tasks = mutateTaskData(this.current_collecting_tasks, id, 'status', 'in browser');
+                            console.log('Task', id, name, 'collected');
+                            this.current_collecting_tasks = mutateTaskData(
+                                this.current_collecting_tasks,
+                                id,
+                                'status',
+                                'waiting-for-resolution'
+                            );
+
+                            const proxies = req.app.locals.accounts_info[req.auth.user.id].proxies;
+                            const current_busy_proxies = req.app.locals.accounts_info[req.auth.user.id].current_busy_proxies;
+
+                            let proxy = proxies.find(proxy => !current_busy_proxies.includes(proxy._id));
+
+                            if (!proxy) {
+                                proxy = proxies[Math.floor(Math.random() * proxies.length)];
+                            } else {
+                                req.app.locals.accounts_info[req.auth.user.id].current_busy_proxies.push(proxy._id);
+                            }
+
+                            this.tasks_waiting_for_resolution.push({ name, url, ...other, proxy });
                         } else if (data && data.includes('completed all your work')) {
                             this.current_collecting_tasks = mutateTaskData(this.current_collecting_tasks, id, 'status', 'completed');
                         } else if (data && data.includes('maximum')) {
@@ -137,7 +162,7 @@ export const setupAppenAccounts = async userId => {
 
         createSessionForEachAccount(accounts);
 
-        return accounts;
+        return { accounts, proxies };
     } catch (error) {
         console.error(error);
     }

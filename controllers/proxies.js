@@ -19,6 +19,10 @@ const CREATE_PROXY = async (req, res) => {
         const proxy = new Proxy({ userId, type, host, port });
         await proxy.save();
 
+        if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId] && req.app.locals.accounts_info[userId].proxies) {
+            req.app.locals.accounts_info[userId].proxies.push(proxy);
+        }
+
         res.status(201).json(proxy);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -55,6 +59,10 @@ const CREATE_PROXY_BULK = async (req, res) => {
             }
         }
 
+        if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId] && req.app.locals.accounts_info[userId].proxies) {
+            req.app.locals.accounts_info[userId].proxies = [...req.app.locals.accounts_info[userId].proxies, ...createdProxies];
+        }
+
         res.status(201).json(createdProxies);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -67,6 +75,13 @@ const UPDATE_PROXY = async (req, res) => {
 
     try {
         const proxy = await Proxy.findOneAndUpdate({ _id: id, userId }, { type, host, port }, { new: true });
+
+        if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId] && req.app.locals.accounts_info[userId].proxies) {
+            req.app.locals.accounts_info[userId].proxies = req.app.locals.accounts_info[userId].proxies.map(p =>
+                p._id === proxy._id ? proxy : p
+            );
+        }
+
         res.status(200).json(proxy);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -83,6 +98,11 @@ const DELETE_PROXY = async (req, res) => {
         if (!proxy) return res.status(404).json({ error: 'Proxy not found' });
 
         await proxy.delete();
+
+        if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId] && req.app.locals.accounts_info[userId].proxies) {
+            req.app.locals.accounts_info[userId].proxies = req.app.locals.accounts_info[userId].proxies.filter(p => p._id !== id);
+        }
+
         res.status(200).json({ message: 'Proxy deleted' });
     } catch (error) {
         res.status(500).json({ error: error.message });

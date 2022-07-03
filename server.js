@@ -18,7 +18,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(
     cors({
-        origin: 'http://localhost:3000',
+        origin: '*',
     })
 );
 
@@ -54,18 +54,30 @@ app.post('/start', async (req, res) => {
     req.app.locals.accounts_info[userId] = {
         scraping_email,
         scraping_delay,
-        task_list: [],
+        task_list: req.app.locals.accounts_info[userId]?.task_list ?? [],
+        current_busy_proxies: req.app.locals.accounts_info[userId]?.current_busy_proxies ?? [],
+        proxies: req.app.locals.accounts_info[userId]?.proxies ?? [],
+        current_collecting_tasks: req.app.locals.accounts_info[userId]?.current_collecting_tasks ?? {},
+        accounts: req.app.locals.accounts_info[userId]?.accounts ?? [],
     };
 
     if (req.app.locals.accounts_info[userId].scraping_stopped === false) {
         return res.status(200).json({ success: true });
     }
 
-    if (!req.app.locals.accounts_info[userId].accounts) {
-        req.app.locals.accounts_info[userId].accounts = await setupAppenAccounts(req.auth.user.id);
+    if (!req.app.locals.accounts_info[userId].accounts.length) {
+        console.log('Setting up accounts');
+        const { accounts, proxies } = await setupAppenAccounts(req);
+        req.app.locals.accounts_info[userId].accounts = accounts;
+        req.app.locals.accounts_info[userId].proxies = proxies;
     } else {
         req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
-            account.current_collecting_tasks.forEach(task => task.resume());
+            account.current_collecting_tasks.forEach(task => {
+                console.log(task.status);
+                if (task.status === 'paused') {
+                    task.resume();
+                }
+            });
             return account;
         });
     }
@@ -160,7 +172,54 @@ app.get('/stop', (req, res) => {
 
 app.get('/status', (req, res) => {
     const userId = req.auth.user.id;
+
     if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId]) {
+        req.app.locals.accounts_info[userId].accounts.forEach(account => {
+            account.current_collecting_tasks.forEach(task => {
+                if (!req.app.locals.accounts_info[userId].current_collecting_tasks[task.id]) {
+                    req.app.locals.accounts_info[userId].current_collecting_tasks[task.id] = {
+                        title: task.name,
+                        pay: task.payout,
+                        level: task.level,
+                        accounts: [],
+                    };
+                } else {
+                    const already_exists = req.app.locals.accounts_info[userId].current_collecting_tasks[task.id].accounts.find(
+                        acc => acc.email === account.email
+                    );
+
+                    if (!already_exists) {
+                        req.app.locals.accounts_info[userId].current_collecting_tasks[task.id].accounts.push({
+                            account_id: account._id,
+                            email: account.email,
+                            account_status: account.status,
+                            fetch_count: task.fetch_count,
+                            task_status: task.status,
+                            pay: task.payout,
+                            level: task.level,
+                        });
+                    } else {
+                        req.app.locals.accounts_info[userId].current_collecting_tasks[task.id].accounts = req.app.locals.accounts_info[
+                            userId
+                        ].current_collecting_tasks[task.id].accounts.map(acc => {
+                            if (acc.email === account.email) {
+                                return {
+                                    account_id: account._id,
+                                    email: account.email,
+                                    fetch_count: task.fetch_count,
+                                    account_status: account.status,
+                                    task_status: task.status,
+                                    pay: task.payout,
+                                    level: task.level,
+                                };
+                            }
+                            return task;
+                        });
+                    }
+                }
+            });
+        });
+
         res.status(200).json(req.app.locals.accounts_info[userId]);
     } else {
         res.status(400).json({ error: 'No scraping is running' });
