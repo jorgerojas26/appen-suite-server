@@ -4,10 +4,25 @@ import Favorite from '../models/favorite.js';
 
 const GET_ACCOUNTS = async (req, res) => {
     try {
-        const accounts = await User.findOne({ _id: req.auth.user.id })
-            .populate({ path: 'accounts', populate: { path: 'favorites' } })
-            .select('-_id accounts');
-        res.status(200).json(accounts.accounts);
+        const accounts = await User.findOne({ _id: req.auth.user.id }).populate({ path: 'accounts' }).select('-_id accounts');
+        const favorites = await Favorite.find({ userId: req.auth.user.id });
+
+        const acc = accounts.accounts.map(a => {
+            const disabled_favorites = a.disabled_favorites;
+
+            return {
+                ...a.toObject(),
+                favorites: favorites.map(favorite => {
+                    if (disabled_favorites.includes(favorite._id.toString())) {
+                        favorite.active = false;
+                    }
+
+                    return favorite;
+                }),
+            };
+        });
+
+        res.status(200).json(acc);
     } catch (error) {
         res.status(500).json({
             error: error.message,
@@ -26,9 +41,7 @@ const CREATE_ACCOUNT = async (req, res) => {
 
         if (account) return res.status(400).json({ error: { message: 'Account already exists' } });
 
-        const favorites = await Favorite.find({});
-
-        account = new Account({ email, password, favorites: favorites.map(f => f._id), userId });
+        account = new Account({ email, password, userId });
 
         // if (validate && !(await account.validate_active())) {
         //     return res.status(400).json({ error: { message: 'Account is not active' } });

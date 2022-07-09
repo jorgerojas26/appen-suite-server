@@ -1,5 +1,5 @@
 import Account from '../models/account.js';
-import User from '../models/user.js';
+import Favorite from '../models/favorite.js';
 import Proxy from '../models/proxy.js';
 import fs from 'fs';
 import axios from 'axios';
@@ -48,7 +48,9 @@ export const setupAppenAccounts = async req => {
     const userId = req.auth.user.id;
 
     try {
-        let accounts = await Account.find({ userId }).populate('favorites');
+        let accounts = await Account.find({ userId });
+        const favorites = await Favorite.find({ userId });
+
         const proxies = await Proxy.find({ userId });
 
         readOrCreateCookiesFileForEachAccount(accounts);
@@ -56,6 +58,14 @@ export const setupAppenAccounts = async req => {
         accounts = accounts.map(account => {
             return {
                 ...account.toObject(),
+                favorites: favorites.map(favorite => {
+                    const disabled_favorites = account.disabled_favorites;
+
+                    return {
+                        ...favorite.toObject(),
+                        active: !disabled_favorites.includes(favorite._id.toString()),
+                    };
+                }),
                 current_collecting_tasks: [],
                 tasks_waiting_for_resolution: [],
                 loginAttempts: 0,
@@ -77,7 +87,7 @@ export const setupAppenAccounts = async req => {
                             status: 'collecting',
                             fetch_count: 0,
                             pause: function () {
-                                if (this.status === 'collecting') {
+                                if (this.status === 'collecting' || this.status === 'waiting-for-resolution') {
                                     this.status = 'paused';
                                 }
                             },

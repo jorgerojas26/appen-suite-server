@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import Favorite from './favorite.js';
 
 const accountSchema = new mongoose.Schema({
     email: {
@@ -9,7 +10,13 @@ const accountSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Favorite' }],
+    disabled_favorites: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Favorite',
+            default: [],
+        },
+    ],
     status: {
         type: String,
         required: true,
