@@ -50,6 +50,7 @@ app.post('/start', async (req, res) => {
     if (!req.app.locals.accounts_info) {
         req.app.locals.accounts_info = {};
     }
+    
 
     req.app.locals.accounts_info[userId] = {
         scraping_email,
@@ -69,6 +70,9 @@ app.post('/start', async (req, res) => {
         const { accounts, proxies } = await setupAppenAccounts(req);
         req.app.locals.accounts_info[userId].accounts = accounts;
         req.app.locals.accounts_info[userId].proxies = proxies;
+	    
+        const random_proxy = proxies[Math.floor(Math.random() * proxies.length)]
+        req.app.locals.accounts_info[userId].task_list_proxy = random_proxy;
     } else {
         req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
             account.current_collecting_tasks.forEach(task => {
@@ -80,6 +84,7 @@ app.post('/start', async (req, res) => {
             return account;
         });
     }
+
 
     const scraping_account = req.app.locals.accounts_info[userId].accounts.find(account => account.email === scraping_email);
 

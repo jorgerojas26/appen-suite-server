@@ -51,7 +51,7 @@ export const setupAppenAccounts = async req => {
         let accounts = await Account.find({ userId });
         const favorites = await Favorite.find({ userId });
 
-        const proxies = await Proxy.find({ userId });
+        const proxies = await Proxy.find({ userId }) || []
 
         readOrCreateCookiesFileForEachAccount(accounts);
 
