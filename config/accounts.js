@@ -51,7 +51,7 @@ export const setupAppenAccounts = async req => {
         let accounts = await Account.find({ userId });
         const favorites = await Favorite.find({ userId });
 
-        const proxies = await Proxy.find({ userId }) || []
+        const proxies = (await Proxy.find({ userId })) || [];
 
         readOrCreateCookiesFileForEachAccount(accounts);
 
@@ -112,11 +112,13 @@ export const setupAppenAccounts = async req => {
 
                         if (response?.response?.status === 404) {
                             console.log(`Account ${this.email} is not logged in. Trying to login...`);
-                            const login = await appenLoginWithRetry(this);
-                            if (!login.error) {
-                                setTimeout(() => {
-                                    this.collect(id);
-                                }, 1000);
+                            if (!this.logginIn) {
+                                const login = await appenLoginWithRetry(this);
+                                if (!login.error) {
+                                    setTimeout(() => {
+                                        this.collect(id);
+                                    }, 1000);
+                                }
                             }
                         } else if (response_url.includes('view.appen.io')) {
                             // TODO: Send task to the browser
