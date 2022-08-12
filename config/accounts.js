@@ -106,11 +106,11 @@ export const setupAppenAccounts = async req => {
                     const { name, url, ...other } = this.current_collecting_tasks.find(task => task.id === id);
 
                     try {
-                        const response = await this.axiosInstance.get(url);
+                        const response = await this.axiosInstance.get(url).catch(err => err);
                         const { data } = response;
                         const response_url = response.request.res.responseUrl;
 
-                        if (response_url === 'https://account.appen.com/sessions/new') {
+                        if (response?.response?.status === 404) {
                             console.log(`Account ${this.email} is not logged in. Trying to login...`);
                             const login = await appenLoginWithRetry(this);
                             if (!login.error) {

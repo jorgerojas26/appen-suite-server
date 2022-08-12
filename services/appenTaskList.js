@@ -16,14 +16,8 @@ export const GET_APPEN_TASK_LIST = async (account, req, userId) => {
         .axiosInstance({
             method: 'GET',
             url: req.app.locals.iframe_url,
-            proxy: {
-		host: req.app.locals.accounts_info[userId].task_list_proxy.host,
-		port: req.app.locals.accounts_info[userId].task_list_proxy.port
-	    },
         })
         .catch(error => error);
-
-	console.log(taskListResponse)
 
     if (taskListResponse.response?.status === 401) {
         let loginResponse = await appenLoginWithRetry(account);
