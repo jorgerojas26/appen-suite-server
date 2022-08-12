@@ -72,6 +72,7 @@ export const appenLoginWithRetry = async account => {
     const login_response = await appenLoginWithCookieJar(account);
 
     if (login_response?.error) {
+        console.log('login error', login_response.error);
         if (account.status === 'active' && account.loginAttempts < 3) {
             account.loginAttempts++;
             console.log('Account ' + account.email + ' Retry logging in for ' + account.loginAttempts + ' time');
