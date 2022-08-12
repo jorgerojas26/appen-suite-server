@@ -111,8 +111,8 @@ export const setupAppenAccounts = async req => {
                         const response_url = response.request.res.responseUrl;
 
                         if (response?.response?.status === 404) {
-                            console.log(`Account ${this.email} is not logged in. Trying to login...`);
                             if (!this.loggingIn) {
+                                console.log(`Account ${this.email} is not logged in. Trying to login...`);
                                 const login = await appenLoginWithRetry(this);
                                 if (!login.error) {
                                     setTimeout(() => {
