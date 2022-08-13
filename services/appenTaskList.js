@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom';
 
 export const GET_APPEN_TASK_LIST = async (account, req, userId) => {
     if (!req.app.locals.iframe_url) {
-        const iframe_url = await get_new_iframe_url(account, req);
+        const iframe_url = await get_new_iframe_url(account, req, userId);
         if (!iframe_url && account.loginAttempts === 3) {
             req.app.locals.accounts_info[userId].scraping_stopped = true;
             return [];
@@ -56,4 +56,3 @@ const extract_task_list = html => {
 
     return task_list_json_parsed;
 };
-

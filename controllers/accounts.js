@@ -73,6 +73,7 @@ const UPDATE_ACCOUNT = async (req, res) => {
         }
 
         const account = await Account.findById(id);
+        const favorites = await Favorite.find({ userId });
         if (!account) {
             return res.status(404).json({ error: { message: 'Account not found' } });
         }
@@ -80,12 +81,20 @@ const UPDATE_ACCOUNT = async (req, res) => {
         account.email = email;
         account.password = password;
         account.status = status;
+        account.favorites = favorites.map(favorite => {
+            if (account.disabled_favorites.includes(favorite._id.toString())) {
+                favorite.active = false;
+            }
+
+            return favorite;
+        });
 
         if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId] && req.app.locals.accounts_info[userId].accounts) {
             req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(a =>
-                a._id.toString() === id ? account : a
+                a._id.toString() === id ? { ...a, ...account } : a
             );
         }
+
         await account.save();
         res.status(200).json(account);
     } catch (error) {

@@ -50,7 +50,6 @@ app.post('/start', async (req, res) => {
     if (!req.app.locals.accounts_info) {
         req.app.locals.accounts_info = {};
     }
-    
 
     req.app.locals.accounts_info[userId] = {
         scraping_email,
@@ -70,8 +69,8 @@ app.post('/start', async (req, res) => {
         const { accounts, proxies } = await setupAppenAccounts(req);
         req.app.locals.accounts_info[userId].accounts = accounts;
         req.app.locals.accounts_info[userId].proxies = proxies;
-	    
-        const random_proxy = proxies[Math.floor(Math.random() * proxies.length)]
+
+        const random_proxy = proxies[Math.floor(Math.random() * proxies.length)];
         req.app.locals.accounts_info[userId].task_list_proxy = random_proxy;
     } else {
         req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
@@ -84,7 +83,6 @@ app.post('/start', async (req, res) => {
             return account;
         });
     }
-
 
     const scraping_account = req.app.locals.accounts_info[userId].accounts.find(account => account.email === scraping_email);
 
@@ -128,10 +126,14 @@ app.post('/start', async (req, res) => {
             const secret = task[12];
             const url = `https://account.appen.com/channels/feca/tasks/${id}?secret=${secret}`;
 
-            const accounts_with_favorite = req.app.locals.accounts_info[userId].accounts.filter(account =>
-                //TODO: change favorite.active condition
-		account.status === 'active' && 
-                account.favorites.find(favorite => name.toLowerCase().includes(favorite.name.toLowerCase()) && !account.disabled_favorites.includes(favorite._id.toString()))
+            const accounts_with_favorite = req.app.locals.accounts_info[userId].accounts.filter(
+                account =>
+                    account.status === 'active' &&
+                    account.favorites.find(
+                        favorite =>
+                            name.toLowerCase().includes(favorite.name.toLowerCase()) &&
+                            !account.disabled_favorites.includes(favorite._id.toString())
+                    )
             );
 
             accounts_with_favorite.forEach(account => {
@@ -224,7 +226,7 @@ app.post('/tasks/:account_id/:task_id/pause', (req, res) => {
         req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
             if (account._id.toString() === account_id) {
                 account.current_collecting_tasks.forEach(task => {
-                    if (task.id.toString() === task_id) {
+                    if (task._id.toString() === task_id) {
                         task.pause();
                     }
                 });
@@ -307,6 +309,31 @@ app.post('/tasks/resume/:task_id', (req, res) => {
     }
 });
 
-app.listen(8080, () => {
-    console.log('listening on 8080');
+app.delete('/tasks/:account_id/:task_id/', (req, res) => {
+    const { task_id, account_id } = req.params;
+
+    const userId = req.auth.user.id;
+
+    try {
+        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
+            if (account_id === 'undefined') {
+                account.current_collecting_tasks = account.current_collecting_tasks.filter(task => task.id.toString() !== task_id);
+            } else if (account._id.toString() === account_id) {
+                account.current_collecting_tasks.forEach(task => {
+                    task.pause();
+                });
+                account.current_collecting_tasks = account.current_collecting_tasks.filter(task => task.id.toString() !== task_id);
+            }
+
+            return account;
+        });
+
+        res.status(200).json({ success: true });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.listen(80, () => {
+    console.log('listening on 80');
 });

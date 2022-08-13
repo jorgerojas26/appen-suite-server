@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import Favorite from './favorite.js';
 
 const accountSchema = new mongoose.Schema({
     email: {

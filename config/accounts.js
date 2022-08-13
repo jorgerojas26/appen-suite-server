@@ -9,24 +9,28 @@ import { FileCookieStore } from 'tough-cookie-file-store';
 import path from 'path';
 import { appenLoginWithRetry } from '../services/appenLogin.js';
 import { mutateTaskData, getTaskValue } from '../services/appenTask.js';
+import { APPEN_BASIC_HEADERS } from '../constants.js';
 
 axiosCookieJarSupport.wrapper(axios);
 
-const readOrCreateCookiesFileForEachAccount = accounts => {
-    for (let account of accounts) {
+const readOrCreateCookiesFileForEachAccount = async accounts => {
+    accounts.forEach(async account => {
         const filename = path.resolve('./config/cookies', account.email);
-        fs.readFile(filename, err => {
-            if (err) {
-                fs.writeFile(filename, '', (err, data) => {
-                    if (err) console.error(err);
-                });
+
+        try {
+            fs.readFileSync(filename);
+        } catch (err) {
+            try {
+                fs.writeFileSync(filename, '');
+            } catch (err) {
+                console.log(err);
             }
-        });
-    }
+        }
+    });
 };
 
 const createSessionForEachAccount = accounts => {
-    for (let account of accounts) {
+    return accounts.map(account => {
         const filename = path.resolve('./config/cookies', account.email);
         let cookieJar = new CookieJar(new FileCookieStore(filename));
         const instance = axios.create({
@@ -41,7 +45,9 @@ const createSessionForEachAccount = accounts => {
     */
         account.axiosInstance = instance;
         account.cookieJar = cookieJar;
-    }
+
+        return account;
+    });
 };
 
 export const setupAppenAccounts = async req => {
@@ -53,7 +59,9 @@ export const setupAppenAccounts = async req => {
 
         const proxies = (await Proxy.find({ userId })) || [];
 
+        console.log('start configuring cookies');
         readOrCreateCookiesFileForEachAccount(accounts);
+        console.log('end configuring cookies');
 
         accounts = accounts.map(account => {
             return {
@@ -85,11 +93,10 @@ export const setupAppenAccounts = async req => {
                             payout,
                             url,
                             status: 'collecting',
+                            error_text: '',
                             fetch_count: 0,
                             pause: function () {
-                                if (this.status === 'collecting' || this.status === 'waiting-for-resolution') {
-                                    this.status = 'paused';
-                                }
+                                this.status = 'paused';
                             },
                             resume: function () {
                                 this.status = 'collecting';
@@ -102,77 +109,101 @@ export const setupAppenAccounts = async req => {
 
                     this.collect.call(this, id);
                 },
-                collect: async function (id) {
-                    const { name, url, ...other } = this.current_collecting_tasks.find(task => task.id === id);
+                collect: async function (task_id) {
+                    const task = this.current_collecting_tasks.find(task => task?.id === task_id);
+                    if (task) {
+                        const { id, name, level, payout, url, ...other } = task;
 
-                    try {
-                        const response = await this.axiosInstance.get(url).catch(err => err);
-                        const { data } = response;
-                        const response_url = response.request.res.responseUrl;
+                        try {
+                            const response = await this.axiosInstance(url, {
+                                ...APPEN_BASIC_HEADERS,
+                                withCredentials: true,
+                            }).catch(err => err);
 
-                        if (response?.response?.status === 404) {
-                            if (!this.loggingIn) {
-                                console.log(`Account ${this.email} is not logged in. Trying to login...`);
-                                const login = await appenLoginWithRetry(this);
-                                if (!login.error) {
-                                    setTimeout(() => {
-                                        this.collect(id);
-                                    }, 1000);
+                            const { data } = response;
+                            const response_url = response.request.res.responseUrl;
+                            // console.log('Response url', response_url, response?.response?.status);
+
+                            /* if (this.email === 'haltamahal@gmail.com') {
+                            console.log('data', response, this.email);
+                        } */
+
+                            if (!data) {
+                                if (!this.loggingIn) {
+                                    console.log(`Account ${this.email} is not logged in. Trying to login...`);
+                                    const loginResponse = await appenLoginWithRetry(this);
+
+                                    if (!loginResponse.error) {
+                                        console.log('Login successful', this.email);
+                                        setTimeout(() => {
+                                            this.collect.call(this, id);
+                                        }, 500);
+                                    }
                                 }
-                            }
-                        } else if (response_url.includes('view.appen.io')) {
-                            // TODO: Send task to the browser
-                            console.log('Task', id, name, 'collected');
-                            this.current_collecting_tasks = mutateTaskData(
-                                this.current_collecting_tasks,
-                                id,
-                                'status',
-                                'waiting-for-resolution'
-                            );
-
-                            const proxies = req.app.locals.accounts_info[req.auth.user.id].proxies;
-                            const current_busy_proxies = req.app.locals.accounts_info[req.auth.user.id].current_busy_proxies;
-
-                            let proxy = proxies.find(proxy => !current_busy_proxies.includes(proxy._id));
-
-                            if (!proxy) {
-                                proxy = proxies[Math.floor(Math.random() * proxies.length)];
-                            } else {
-                                req.app.locals.accounts_info[req.auth.user.id].current_busy_proxies.push(proxy._id);
-                            }
-
-                            this.tasks_waiting_for_resolution.push({ name, url, ...other, proxy });
-                        } else if (data && data.includes('completed all your work')) {
-                            this.current_collecting_tasks = mutateTaskData(this.current_collecting_tasks, id, 'status', 'completed');
-                        } else if (data && data.includes('maximum')) {
-                            this.current_collecting_tasks = mutateTaskData(this.current_collecting_tasks, id, 'status', 'maximum');
-                        } else if (data && data.includes('Expired')) {
-                            this.current_collecting_tasks = mutateTaskData(this.current_collecting_tasks, id, 'status', 'expired');
-                        } else {
-                            const status = getTaskValue(this.current_collecting_tasks, id, 'status');
-
-                            if (status === 'collecting') {
+                            } else if (response_url.includes('view.appen.io')) {
+                                // TODO: Send task to the browser
+                                console.log('Task', task_id, name, 'collected');
                                 this.current_collecting_tasks = mutateTaskData(
                                     this.current_collecting_tasks,
-                                    id,
-                                    'fetch_count',
-                                    this.current_collecting_tasks.find(task => task.id === id).fetch_count + 1
+                                    task_id,
+                                    'status',
+                                    'waiting-for-resolution'
                                 );
-                                setTimeout(() => {
-                                    this.collect(id);
-                                }, 1000);
+
+                                const proxies = req.app.locals.accounts_info[req.auth.user.id].proxies;
+                                const current_busy_proxies = req.app.locals.accounts_info[req.auth.user.id].current_busy_proxies;
+
+                                let proxy = proxies.find(proxy => !current_busy_proxies.includes(proxy._id));
+
+                                if (!proxy) {
+                                    proxy = proxies[Math.floor(Math.random() * proxies.length)];
+                                } else {
+                                    req.app.locals.accounts_info[req.auth.user.id].current_busy_proxies.push(proxy._id);
+                                }
+
+                                this.tasks_waiting_for_resolution.push({ id, name, url, ...other, proxy });
+                            } else if (data && data.includes('completed all your work')) {
+                                this.current_collecting_tasks = mutateTaskData(
+                                    this.current_collecting_tasks,
+                                    task_id,
+                                    'status',
+                                    'completed'
+                                );
+                            } else if (data && data.includes('maximum')) {
+                                this.current_collecting_tasks = mutateTaskData(this.current_collecting_tasks, task_id, 'status', 'maximum');
+                            } else if (data && data.includes('Expired')) {
+                                this.current_collecting_tasks = mutateTaskData(this.current_collecting_tasks, task_id, 'status', 'expired');
+                            } else {
+                                const status = getTaskValue(this.current_collecting_tasks, task_id, 'status');
+
+                                if (status === 'collecting') {
+                                    this.current_collecting_tasks = mutateTaskData(
+                                        this.current_collecting_tasks,
+                                        task_id,
+                                        'fetch_count',
+                                        this.current_collecting_tasks.find(task => task.id === task_id).fetch_count + 1
+                                    );
+                                    setTimeout(() => {
+                                        this.collect.call(this, task_id);
+                                    }, 500);
+                                }
                             }
+                        } catch (err) {
+                            this.current_collecting_tasks = mutateTaskData(this.current_collecting_tasks, task_id, 'status', 'error');
+                            this.current_collecting_tasks = mutateTaskData(
+                                this.current_collecting_tasks,
+                                task_id,
+                                'error_text',
+                                err.message
+                            );
+                            console.error(`Account ${this.email} failed to collect ${task_id} - ${name}: ${err}`);
                         }
-                    } catch (err) {
-                        console.log('error', err);
-                        this.current_collecting_tasks = mutateTaskData(this.current_collecting_tasks, id, 'status', 'error');
-                        console.error(`Account ${this.email} failed to collect ${id} - ${name}: ${err}`);
                     }
                 },
             };
         });
 
-        createSessionForEachAccount(accounts);
+        accounts = createSessionForEachAccount(accounts);
 
         return { accounts, proxies };
     } catch (error) {

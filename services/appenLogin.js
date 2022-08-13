@@ -1,11 +1,11 @@
-import { KEYCLOAK_URL, APPEN_BASIC_HEADERS, APPEN_AUTH_HEADERS } from '../constants.js';
+import { KEYCLOAK_URL, APPEN_BASIC_HEADERS, APPEN_AUTH_HEADERS, CONTRIBUTOR_ME_URL, CONTRIBUTOR_IFRAME_URL } from '../constants.js';
 import { JSDOM } from 'jsdom';
 import { URLSearchParams } from 'url';
 
-const get_keycloak_action_url = async axiosInstance => {
-    const keycloak_response = await axiosInstance(KEYCLOAK_URL, APPEN_BASIC_HEADERS);
+const get_keycloak_action_url = async account => {
+    const keycloak_response = await account.axiosInstance(KEYCLOAK_URL, APPEN_BASIC_HEADERS);
     const identity_url = keycloak_response.data.redirectUrl;
-    const identity_response = await axiosInstance(identity_url);
+    const identity_response = await account.axiosInstance(identity_url);
     const html = identity_response.data;
     const dom = new JSDOM(html);
     const action = dom.window.document.querySelector('form')?.action;
@@ -32,18 +32,21 @@ const are_credentials_valid = login_response => {
     return !login_response.data.includes('Invalid username or password');
 };
 
-const set_feca_proxy_cookies = async (login_response_url, axiosInstance) => {
+const set_feca_proxy_cookies = async (login_response_url, account) => {
     const state = login_response_url.searchParams.get('state');
     const session_state = login_response_url.searchParams.get('session_state');
     const code = login_response_url.searchParams.get('code');
-    const feca_proxy_response = await axiosInstance(
+    const feca_proxy_response = await account.axiosInstance(
         `https://feca-proxy.appen.com/auth/keycloak/callback?state=${state}&session_state=${session_state}&code=${code}`
     );
-    return feca_proxy_response;
+    const annotate_response = await account.axiosInstance(CONTRIBUTOR_IFRAME_URL);
+    const iframe_response = await account.axiosInstance(annotate_response?.data?.url);
+
+    return iframe_response;
 };
 
-const is_account_banned = async axiosInstance => {
-    const account_response = await axiosInstance('https://account.appen.com', APPEN_BASIC_HEADERS);
+export const is_account_banned = async account => {
+    const account_response = await account.axiosInstance('https://account.appen.com', APPEN_BASIC_HEADERS);
     const account_response_url = account_response.request.res.responseUrl;
     const is_banned = account_response_url.includes('banned');
     return is_banned;
@@ -51,16 +54,17 @@ const is_account_banned = async axiosInstance => {
 
 export const appenLoginWithCookieJar = async account => {
     console.log('Logging in...' + account.email + ' ' + account.password);
-    const keycloak_action = await get_keycloak_action_url(account.axiosInstance);
+    const keycloak_action = await get_keycloak_action_url(account);
     if (!keycloak_action) return { error: 'Could not get keycloak action' };
 
     const login_response = await signIn(account, keycloak_action);
     if (login_response?.error) return login_response;
 
     const login_response_url = new URL(login_response.request.res.responseUrl);
-    const feca_proxy_response = await set_feca_proxy_cookies(login_response_url, account.axiosInstance);
+    const feca_proxy_response = await set_feca_proxy_cookies(login_response_url, account);
+    console.log('Feca proxy response', feca_proxy_response.data);
 
-    const banned = await is_account_banned(account.axiosInstance);
+    const banned = await is_account_banned(account);
 
     if (banned) account.status = 'banned';
 
@@ -73,6 +77,7 @@ export const appenLoginWithRetry = async account => {
 
     if (login_response?.error) {
         console.log('login error', login_response.error);
+        account.loginError = login_response.error;
         if (account.status === 'active' && account.loginAttempts < 3) {
             account.loginAttempts++;
             console.log('Account ' + account.email + ' Retry logging in for ' + account.loginAttempts + ' time');

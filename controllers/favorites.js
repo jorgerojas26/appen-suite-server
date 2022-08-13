@@ -149,7 +149,8 @@ const DELETE_FAVORITE = async (req, res) => {
 
         if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId] && req.app.locals.accounts_info[userId].accounts) {
             req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
-                account.favorites = account.favorites.filter(favorite => favorite.name.toString() !== id);
+                account.favorites = account.favorites.filter(favorite => favorite._id.toString() !== id);
+                account.disabled_favorites = account.disabled_favorites.filter(favorite => (favorite ? favorite.toString() !== id : false));
                 return account;
             });
         }
@@ -167,31 +168,43 @@ const TOGGLE_ACTIVE = async (req, res) => {
 
     const userId = req.auth.user.id;
 
-    console.log('TOGGLE ACTIVE', account_id, favorite_id, active);
-
     try {
         let accounts = [];
-        if (account_id && account_id !== 'undefined' && favorite_id) {
+
+        if (account_id && account_id !== 'undefined') {
             accounts.push(await Account.findById(account_id));
         } else {
             accounts = await Account.find({});
         }
 
-        for (let account of accounts) {
-            if (active) {
-                account.disabled_favorites = account.disabled_favorites.filter(id => id.toString() !== favorite_id);
-            } else {
-                account.disabled_favorites = [...account.disabled_favorites, favorite_id];
-            }
-            await account.save();
+        let favorites = [];
+
+        if (favorite_id && favorite_id !== 'undefined') {
+            const db_favorite = await Favorite.findById(favorite_id);
+            favorites.push(db_favorite._id.toString());
+        } else {
+            favorites = await Favorite.find({});
+            favorites = favorites.map(favorite => favorite._id.toString());
+        }
+
+        if (active) {
+            await Account.updateMany(
+                { _id: { $in: accounts.map(account => account._id.toString()) } },
+                { $pull: { disabled_favorites: { $in: favorites } } }
+            );
+        } else {
+            await Account.updateMany(
+                { _id: { $in: accounts.map(account => account._id.toString()) } },
+                { $addToSet: { disabled_favorites: { $each: favorites } } }
+            );
         }
 
         if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId] && req.app.locals.accounts_info[userId].accounts) {
             req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
-                if (account_id && account_id !== 'undefined' && favorite_id) {
+                if (account_id && account_id !== 'undefined') {
                     if (account._id.toString() === account_id) {
                         account.favorites = account.favorites.map(favorite => {
-                            if (favorite._id.toString() === favorite_id) {
+                            if (favorites.includes(favorite._id.toString())) {
                                 favorite.active = active;
                             }
                             return favorite;
