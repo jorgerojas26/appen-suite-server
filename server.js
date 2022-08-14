@@ -222,7 +222,7 @@ app.post('/tasks/:account_id/:task_id/pause', (req, res) => {
         req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
             if (account._id.toString() === account_id) {
                 account.current_collecting_tasks.forEach(task => {
-                    if (task._id.toString() === task_id) {
+                    if (task.id.toString() === task_id) {
                         task.pause();
                     }
                 });
