@@ -129,11 +129,7 @@ app.post('/start', async (req, res) => {
             const accounts_with_favorite = req.app.locals.accounts_info[userId].accounts.filter(
                 account =>
                     account.status === 'active' &&
-                    account.favorites.find(
-                        favorite =>
-                            name.toLowerCase().includes(favorite.name.toLowerCase()) &&
-                            !account.disabled_favorites.includes(favorite._id.toString())
-                    )
+                    account.favorites.find(favorite => name.toLowerCase().includes(favorite.name.toLowerCase()) && favorite.active)
             );
 
             accounts_with_favorite.forEach(account => {

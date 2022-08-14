@@ -201,27 +201,30 @@ const TOGGLE_ACTIVE = async (req, res) => {
 
         if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId] && req.app.locals.accounts_info[userId].accounts) {
             req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
-                if (account_id && account_id !== 'undefined') {
-                    if (account._id.toString() === account_id) {
-                        account.favorites = account.favorites.map(favorite => {
-                            if (favorites.includes(favorite._id.toString())) {
-                                favorite.active = active;
-                            }
-                            return favorite;
-                        });
-                    }
-                } else {
+                if (accounts.some(acc => acc._id.toString() === account._id.toString())) {
                     account.favorites = account.favorites.map(favorite => {
-                        favorite.active = active;
+                        if (favorites.some(fav => fav === favorite._id.toString())) {
+                            favorite.active = active;
+                        }
                         return favorite;
                     });
+
+                    if (active) {
+                        account.disabled_favorites = account.disabled_favorites.filter(
+                            dis_fav => !favorites.some(f => f === dis_fav._id.toString())
+                        );
+                    } else {
+                        account.disabled_favorites = account.disabled_favorites.concat(favorites);
+                    }
                 }
+
                 return account;
             });
         }
 
-        res.status(200).json({ error: 'Favorite updated' });
+        res.status(200).json({ message: 'Favorite updated' });
     } catch (error) {
+        console.log(error);
         res.status(400).json({ error: error.message });
     }
 };
