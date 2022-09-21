@@ -100,11 +100,14 @@ const DELETE_PROXY = async (req, res) => {
         await proxy.delete();
 
         if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId] && req.app.locals.accounts_info[userId].proxies) {
-            req.app.locals.accounts_info[userId].proxies = req.app.locals.accounts_info[userId].proxies.filter(p => p._id !== id);
+            req.app.locals.accounts_info[userId].proxies = req.app.locals.accounts_info[userId].proxies.filter(
+                p => p._id.toString() !== id
+            );
         }
 
         res.status(200).json({ message: 'Proxy deleted' });
     } catch (error) {
+        console.log('Delete proxy error', error);
         res.status(500).json({ error: error.message });
     }
 };

@@ -1,0 +1,10 @@
+remote_host     34.174.101.230
+remote_user    jorgerojas
+remote_port    22
+remote_path     ~/appen-suite-server
+local_path    .
+ignore_path     ["build/","test/", "node_modules/"]
+ignore_dotfiles 0
+auto_sync_up    1
+remote_or_local remote
+sleep_before_sync 0

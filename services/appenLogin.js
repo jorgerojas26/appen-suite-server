@@ -62,7 +62,7 @@ export const appenLoginWithCookieJar = async account => {
 
     const login_response_url = new URL(login_response.request.res.responseUrl);
     const feca_proxy_response = await set_feca_proxy_cookies(login_response_url, account);
-    console.log('Feca proxy response', feca_proxy_response.data);
+    // console.log('Feca proxy response', feca_proxy_response.data);
 
     const banned = await is_account_banned(account);
 

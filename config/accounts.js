@@ -64,6 +64,8 @@ export const setupAppenAccounts = async req => {
         console.log('end configuring cookies');
 
         accounts = accounts.map(account => {
+            const cached_data = req.app.locals.accounts_info[userId].accounts.find(a => a.email === account.email);
+
             return {
                 ...account.toObject(),
                 favorites: favorites.map(favorite => {
@@ -111,95 +113,117 @@ export const setupAppenAccounts = async req => {
                 },
                 collect: async function (task_id) {
                     const task = this.current_collecting_tasks.find(task => task?.id === task_id);
-                    if (task) {
-                        const { id, name, level, payout, url, ...other } = task;
+                    const waiting_for_resolution = this.tasks_waiting_for_resolution.find(task => task?.id === task_id);
 
-                        try {
-                            const response = await this.axiosInstance(url, {
-                                ...APPEN_BASIC_HEADERS,
-                                withCredentials: true,
-                            }).catch(err => err);
+                    if (waiting_for_resolution?.status === 'opened-in-browser') {
+                        this.current_collecting_tasks = mutateTaskData(
+                            this.current_collecting_tasks,
+                            task_id,
+                            'status',
+                            'opened-in-browser'
+                        );
+                    } else {
+                        if (task) {
+                            const { id, name, level, payout, url, ...other } = task;
 
-                            const { data } = response;
-                            const response_url = response.request.res.responseUrl;
-                            // console.log('Response url', response_url, response?.response?.status);
+                            try {
+                                const response = await this.axiosInstance(url, {
+                                    ...APPEN_BASIC_HEADERS,
+                                }).catch(err => err);
 
-                            /* if (this.email === 'haltamahal@gmail.com') {
-                            console.log('data', response, this.email);
-                        } */
+                                const { data } = response;
+                                const response_url = response.request?.res?.responseUrl;
 
-                            if (!data) {
-                                if (!this.loggingIn) {
-                                    console.log(`Account ${this.email} is not logged in. Trying to login...`);
-                                    const loginResponse = await appenLoginWithRetry(this);
+                                if (response_url.includes('identity.appen.com') || response?.response?.status === 404) {
+                                    if (!this.loggingIn) {
+                                        const loginResponse = await appenLoginWithRetry(this);
 
-                                    if (!loginResponse.error) {
-                                        console.log('Login successful', this.email);
-                                        setTimeout(() => {
-                                            this.collect.call(this, id);
-                                        }, 500);
+                                        if (!loginResponse.error) {
+                                            console.log('Login successful', this.email);
+                                            setTimeout(() => {
+                                                this.collect.call(this, id);
+                                            }, 500);
+                                        }
                                     }
-                                }
-                            } else if (response_url.includes('view.appen.io')) {
-                                // TODO: Send task to the browser
-                                console.log('Task', task_id, name, 'collected');
-                                this.current_collecting_tasks = mutateTaskData(
-                                    this.current_collecting_tasks,
-                                    task_id,
-                                    'status',
-                                    'waiting-for-resolution'
-                                );
-
-                                const proxies = req.app.locals.accounts_info[req.auth.user.id].proxies;
-                                const current_busy_proxies = req.app.locals.accounts_info[req.auth.user.id].current_busy_proxies;
-
-                                let proxy = proxies.find(proxy => !current_busy_proxies.includes(proxy._id));
-
-                                if (!proxy) {
-                                    proxy = proxies[Math.floor(Math.random() * proxies.length)];
-                                } else {
-                                    req.app.locals.accounts_info[req.auth.user.id].current_busy_proxies.push(proxy._id);
-                                }
-
-                                this.tasks_waiting_for_resolution.push({ id, name, url, ...other, proxy });
-                            } else if (data && data.includes('completed all your work')) {
-                                this.current_collecting_tasks = mutateTaskData(
-                                    this.current_collecting_tasks,
-                                    task_id,
-                                    'status',
-                                    'completed'
-                                );
-                            } else if (data && data.includes('maximum')) {
-                                this.current_collecting_tasks = mutateTaskData(this.current_collecting_tasks, task_id, 'status', 'maximum');
-                            } else if (data && data.includes('Expired')) {
-                                this.current_collecting_tasks = mutateTaskData(this.current_collecting_tasks, task_id, 'status', 'expired');
-                            } else {
-                                const status = getTaskValue(this.current_collecting_tasks, task_id, 'status');
-
-                                if (status === 'collecting') {
+                                } else if (response_url.includes('view.appen.io')) {
+                                    // TODO: Send task to the browser
+                                    console.log('Task', task_id, name, 'collected');
                                     this.current_collecting_tasks = mutateTaskData(
                                         this.current_collecting_tasks,
                                         task_id,
-                                        'fetch_count',
-                                        this.current_collecting_tasks.find(task => task.id === task_id).fetch_count + 1
+                                        'status',
+                                        'waiting-for-resolution'
                                     );
-                                    setTimeout(() => {
-                                        this.collect.call(this, task_id);
-                                    }, 500);
+
+                                    const proxies = req.app.locals.accounts_info[req.auth.user.id].proxies;
+                                    const current_busy_proxies = req.app.locals.accounts_info[req.auth.user.id].current_busy_proxies;
+
+                                    let proxy = proxies.find(proxy => !current_busy_proxies.includes(proxy._id));
+
+                                    if (!proxy) {
+                                        proxy = proxies[Math.floor(Math.random() * proxies.length)];
+                                    } else {
+                                        req.app.locals.accounts_info[req.auth.user.id].current_busy_proxies.push(proxy._id);
+                                    }
+
+                                    this.tasks_waiting_for_resolution.push({
+                                        id,
+                                        name,
+                                        url,
+                                        ...other,
+                                        status: 'waiting-for-resolution',
+                                        proxy,
+                                    });
+                                } else if (data && data.includes('completed all your work')) {
+                                    this.current_collecting_tasks = mutateTaskData(
+                                        this.current_collecting_tasks,
+                                        task_id,
+                                        'status',
+                                        'completed'
+                                    );
+                                } else if (data && data.includes('maximum')) {
+                                    this.current_collecting_tasks = mutateTaskData(
+                                        this.current_collecting_tasks,
+                                        task_id,
+                                        'status',
+                                        'maximum'
+                                    );
+                                } else if (data && data.includes('Expired')) {
+                                    this.current_collecting_tasks = mutateTaskData(
+                                        this.current_collecting_tasks,
+                                        task_id,
+                                        'status',
+                                        'expired'
+                                    );
+                                } else {
+                                    const status = getTaskValue(this.current_collecting_tasks, task_id, 'status');
+
+                                    if (status === 'collecting') {
+                                        this.current_collecting_tasks = mutateTaskData(
+                                            this.current_collecting_tasks,
+                                            task_id,
+                                            'fetch_count',
+                                            this.current_collecting_tasks.find(task => task.id === task_id).fetch_count + 1
+                                        );
+                                        setTimeout(() => {
+                                            this.collect.call(this, task_id);
+                                        }, 500);
+                                    }
                                 }
+                            } catch (err) {
+                                this.current_collecting_tasks = mutateTaskData(this.current_collecting_tasks, task_id, 'status', 'error');
+                                this.current_collecting_tasks = mutateTaskData(
+                                    this.current_collecting_tasks,
+                                    task_id,
+                                    'error_text',
+                                    err.message
+                                );
+                                console.error(`Account ${this.email} failed to collect ${task_id} - ${name}: ${err}`);
                             }
-                        } catch (err) {
-                            this.current_collecting_tasks = mutateTaskData(this.current_collecting_tasks, task_id, 'status', 'error');
-                            this.current_collecting_tasks = mutateTaskData(
-                                this.current_collecting_tasks,
-                                task_id,
-                                'error_text',
-                                err.message
-                            );
-                            console.error(`Account ${this.email} failed to collect ${task_id} - ${name}: ${err}`);
                         }
                     }
                 },
+                ...cached_data,
             };
         });
 

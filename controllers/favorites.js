@@ -211,7 +211,7 @@ const TOGGLE_ACTIVE = async (req, res) => {
 
                     if (active) {
                         account.disabled_favorites = account.disabled_favorites.filter(
-                            dis_fav => !favorites.some(f => f === dis_fav._id.toString())
+                            dis_fav => !favorites.some(f => f === dis_fav.toString())
                         );
                     } else {
                         account.disabled_favorites = account.disabled_favorites.concat(favorites);

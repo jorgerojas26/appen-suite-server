@@ -193,7 +193,17 @@ app.post('/tasks/:account_id/:task_id/resolve', (req, res) => {
 
         req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
             if (account._id.toString() === account_id) {
-                account.tasks_waiting_for_resolution = account.tasks_waiting_for_resolution.filter(task => task.id.toString() !== task_id);
+                account.tasks_waiting_for_resolution = account.tasks_waiting_for_resolution.filter(task => {
+                    if (task.id !== task_id) {
+                        req.app.locals.accounts_info[userId].current_busy_proxies = req.app.locals.accounts_info[
+                            userId
+                        ].current_busy_proxies.filter(proxy => proxy._id.toString() !== task.proxy._id.toString());
+
+                        return false;
+                    }
+
+                    return true;
+                });
 
                 account.current_collecting_tasks.forEach(task => {
                     if (task.id.toString() === task_id) {
@@ -305,20 +315,62 @@ app.post('/tasks/resume/:task_id', (req, res) => {
     }
 });
 
-app.delete('/tasks/:account_id/:task_id/', (req, res) => {
+app.post('/tasks/open', (req, res) => {
+    const { tasks, accounts } = req.body;
+
+    console.log(tasks, accounts);
+
+    const userId = req.auth.user.id;
+
+    try {
+        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
+            if (accounts.includes(account._id.toString())) {
+                account.tasks_waiting_for_resolution = account.tasks_waiting_for_resolution.map(task => {
+                    if (tasks.includes(task.id)) {
+                        task.status = 'opened-in-browser';
+                    }
+                    return task;
+                });
+
+                account.current_collecting_tasks = account.current_collecting_tasks.map(task => {
+                    if (tasks.includes(task.id)) {
+                        task.status = 'opened-in-browser';
+                    }
+                    return task;
+                });
+            }
+
+            return account;
+        });
+
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.log('error', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.delete('/tasks/:account_id/:task_id', (req, res) => {
     const { task_id, account_id } = req.params;
+
+    console.log('DELETING TASK', task_id, account_id);
 
     const userId = req.auth.user.id;
 
     try {
         req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
             if (account_id === 'undefined') {
-                account.current_collecting_tasks = account.current_collecting_tasks.filter(task => task.id.toString() !== task_id);
+                account.current_collecting_tasks = account.current_collecting_tasks.filter(task => task.id != task_id);
+                account.tasks_waiting_for_resolution = account.tasks_waiting_for_resolution.filter(task => task.id != task_id);
             } else if (account._id.toString() === account_id) {
                 account.current_collecting_tasks.forEach(task => {
-                    task.pause();
+                    if (task.id === task_id) {
+                        task.pause();
+                    }
                 });
-                account.current_collecting_tasks = account.current_collecting_tasks.filter(task => task.id.toString() !== task_id);
+                account.current_collecting_tasks = account.current_collecting_tasks.filter(task => task.id !== task_id);
+
+                account.tasks_waiting_for_resolution = account.tasks_waiting_for_resolution.filter(task => task.id !== task_id);
             }
 
             return account;

@@ -1,6 +1,9 @@
 import Account from '../models/account.js';
 import User from '../models/user.js';
 import Favorite from '../models/favorite.js';
+import { mutateTaskData, getTaskValue } from '../services/appenTask.js';
+import { APPEN_BASIC_HEADERS } from '../constants.js';
+import { setupAppenAccounts } from '../config/accounts.js';
 
 const GET_ACCOUNTS = async (req, res) => {
     try {
@@ -52,7 +55,8 @@ const CREATE_ACCOUNT = async (req, res) => {
         await User.updateOne({ _id: req.auth.user.id }, { $push: { accounts: account._id } });
 
         if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId] && req.app.locals.accounts_info[userId].accounts) {
-            req.app.locals.accounts_info[userId].accounts = [...req.app.locals.accounts_info[userId].accounts, account];
+            const { accounts } = await setupAppenAccounts(req);
+            req.app.locals.accounts_info[userId].accounts = accounts;
         }
 
         res.status(200).json(account);
