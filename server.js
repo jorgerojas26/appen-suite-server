@@ -24,7 +24,7 @@ app.use(
 
 app.use(express.static('public'));
 
-app.use(jwt({ secret: process.env.JWT_SECRET, algorithms: ['HS256'] }).unless({ path: ['/auth/login'] }));
+app.use(jwt({ secret: process.env.JWT_SECRET, algorithms: ['HS256'] }).unless({ path: ['/auth/login', '/auth/register'] }));
 app.use('/auth', authRoutes);
 
 app.use('/accounts', accountsRoutes);
