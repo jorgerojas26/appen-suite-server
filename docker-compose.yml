@@ -2,9 +2,8 @@ version: "3"
 services:
         appen-suite-server:
                 container_name: appen-suite-server
-                image: "appen-suite-server/latest"
+                image: "jorgerojas26/appen-suite-server:latest"
                 restart: always
-                build: .
                 ports:
                   - "8080:8080"
                 links:
