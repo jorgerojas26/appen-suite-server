@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-mongoose.connect(process.env.MONGODB_URI);
+mongoose.connect('mongodb://mongo:27017/appen-suite');
 
 mongoose.connection.on('connected', () => {
     console.log('Mongoose connected to database');
