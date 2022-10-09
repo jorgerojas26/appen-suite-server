@@ -11,6 +11,7 @@ import authRoutes from './routes/auth/auth.js';
 import proxyRoutes from './routes/proxies/proxies.js';
 
 import { expressjwt as jwt } from 'express-jwt';
+import User from './models/user.js';
 
 const app = express();
 
@@ -24,7 +25,19 @@ app.use(
 
 app.use(express.static('public'));
 
-app.use(jwt({ secret: process.env.JWT_SECRET, algorithms: ['HS256'] }).unless({ path: ['/auth/login', '/auth/register'] }));
+// app.use(jwt({ secret: process.env.JWT_SECRET, algorithms: ['HS256'] }).unless({ path: ['/auth/login', '/auth/register'] }));
+
+app.use(async (req, res, next) => {
+    const user = await User.find({});
+
+    req.auth = {
+        user: {
+            id: user[0]._id.toString(),
+        },
+    };
+    next();
+});
+
 app.use('/auth', authRoutes);
 
 app.use('/accounts', accountsRoutes);
@@ -93,9 +106,13 @@ app.post('/start', async (req, res) => {
     req.app.locals.accounts_info[userId].scraping_stopped = false;
 
     setTimeout(async function start_scraping() {
+        console.log('Starting scraping');
         if (req.app.locals.accounts_info[userId].scraping_stopped) return;
+        console.log('Getting task list');
 
         const task_list = await GET_APPEN_TASK_LIST(scraping_account, req, userId);
+
+        console.log('Task list', task_list);
 
         req.app.locals.accounts_info[userId].task_list = task_list.map(task => {
             const id = task[0];

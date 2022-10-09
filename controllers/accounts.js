@@ -1,31 +1,37 @@
 import Account from '../models/account.js';
 import User from '../models/user.js';
 import Favorite from '../models/favorite.js';
-import { mutateTaskData, getTaskValue } from '../services/appenTask.js';
-import { APPEN_BASIC_HEADERS } from '../constants.js';
 import { setupAppenAccounts } from '../config/accounts.js';
 
 const GET_ACCOUNTS = async (req, res) => {
     try {
-        const accounts = await User.findOne({ _id: req.auth.user.id }).populate({ path: 'accounts' }).select('-_id accounts');
-        const favorites = await Favorite.find({ userId: req.auth.user.id });
+        const a = await User.find({}).populate({ path: 'accounts' }).select('-_id accounts');
+        const favorites = (await Favorite.find({ userId: req.auth.user.id })) || [];
 
-        const acc = accounts.accounts.map(a => {
-            const disabled_favorites = a.disabled_favorites;
+        const accounts = a[0];
 
-            return {
-                ...a.toObject(),
-                favorites: favorites.map(favorite => {
-                    if (disabled_favorites.includes(favorite._id.toString())) {
-                        favorite.active = false;
-                    }
+        console.log('accounts', accounts);
 
-                    return favorite;
-                }),
-            };
-        });
+        if (accounts && accounts.accounts) {
+            const acc = accounts.accounts.map(a => {
+                const disabled_favorites = a.disabled_favorites;
 
-        res.status(200).json(acc);
+                return {
+                    ...a.toObject(),
+                    favorites: favorites.map(favorite => {
+                        if (disabled_favorites.includes(favorite._id.toString())) {
+                            favorite.active = false;
+                        }
+
+                        return favorite;
+                    }),
+                };
+            });
+
+            res.status(200).json(acc);
+        } else {
+            res.status(200).json([]);
+        }
     } catch (error) {
         res.status(500).json({
             error: error.message,

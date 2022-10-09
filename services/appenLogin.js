@@ -74,6 +74,7 @@ export const appenLoginWithCookieJar = async account => {
 export const appenLoginWithRetry = async account => {
     account.loggingIn = true;
     const login_response = await appenLoginWithCookieJar(account);
+    console.log('Login response', login_response);
 
     if (login_response?.error) {
         console.log('login error', login_response.error);
