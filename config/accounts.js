@@ -137,6 +137,12 @@ export const setupAppenAccounts = async req => {
                                 const response_url = response.request?.res?.responseUrl;
 
                                 if (response_url.includes('identity.appen.com') || response?.response?.status === 404) {
+                                    this.current_collecting_tasks = mutateTaskData(
+                                        this.current_collecting_tasks,
+                                        task_id,
+                                        'error_text',
+                                        'Session expired'
+                                    );
                                     if (!this.loggingIn) {
                                         const loginResponse = await appenLoginWithRetry(this);
 
@@ -183,12 +189,24 @@ export const setupAppenAccounts = async req => {
                                         'status',
                                         'completed'
                                     );
+                                    this.current_collecting_tasks = mutateTaskData(
+                                        this.current_collecting_tasks,
+                                        task_id,
+                                        'error_text',
+                                        'completed all your work'
+                                    );
                                 } else if (data && data.includes('maximum')) {
                                     this.current_collecting_tasks = mutateTaskData(
                                         this.current_collecting_tasks,
                                         task_id,
                                         'status',
                                         'maximum'
+                                    );
+                                    this.current_collecting_tasks = mutateTaskData(
+                                        this.current_collecting_tasks,
+                                        task_id,
+                                        'error_text',
+                                        'maximum number of tasks'
                                     );
                                 } else if (data && data.includes('Expired')) {
                                     this.current_collecting_tasks = mutateTaskData(
@@ -197,10 +215,22 @@ export const setupAppenAccounts = async req => {
                                         'status',
                                         'expired'
                                     );
+                                    this.current_collecting_tasks = mutateTaskData(
+                                        this.current_collecting_tasks,
+                                        task_id,
+                                        'error_text',
+                                        'task link expired'
+                                    );
                                 } else {
                                     const status = getTaskValue(this.current_collecting_tasks, task_id, 'status');
 
                                     if (status === 'collecting') {
+                                        this.current_collecting_tasks = mutateTaskData(
+                                            this.current_collecting_tasks,
+                                            task_id,
+                                            'error_text',
+                                            ''
+                                        );
                                         this.current_collecting_tasks = mutateTaskData(
                                             this.current_collecting_tasks,
                                             task_id,
