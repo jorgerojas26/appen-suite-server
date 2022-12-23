@@ -1,6 +1,7 @@
 import { KEYCLOAK_URL, APPEN_BASIC_HEADERS, APPEN_AUTH_HEADERS, CONTRIBUTOR_ME_URL, CONTRIBUTOR_IFRAME_URL } from '../constants.js';
 import { JSDOM } from 'jsdom';
 import { URLSearchParams } from 'url';
+import Account from '../models/account.js';
 
 const get_keycloak_action_url = async account => {
     const keycloak_response = await account.axiosInstance(KEYCLOAK_URL, APPEN_BASIC_HEADERS);
@@ -88,6 +89,7 @@ export const appenLoginWithRetry = async account => {
             account.status = 'inactive';
             //account.loginAttempts = 0;
             account.loggingIn = false;
+            await Account.updateOne({ email: account.email }, { $set: { status: 'inactive' } });
         }
         return login_response;
     } else {
