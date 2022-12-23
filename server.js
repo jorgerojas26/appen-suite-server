@@ -153,7 +153,7 @@ app.post('/start', async (req, res) => {
                 const taskExists = account.current_collecting_tasks.find(task => task.id === id);
 
                 if (!taskExists || taskExists.status === 'expired') {
-                    account.start_collecting({ id, name, level, payout, url });
+                    account.start_collecting({ id, name, level, payout, url, scraping_delay });
                 }
             });
         });
@@ -167,7 +167,7 @@ app.post('/start', async (req, res) => {
         }
 
         start_scraping();
-    }, scraping_delay);
+    });
 
     res.status(200).json({ success: true });
 });
@@ -400,5 +400,5 @@ app.delete('/tasks/:account_id/:task_id', (req, res) => {
 });
 
 app.listen(8080, () => {
-    console.log('listening on 80');
+    console.log('listening on 8080');
 });

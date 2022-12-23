@@ -10,6 +10,7 @@ import path from 'path';
 import { appenLoginWithRetry } from '../services/appenLogin.js';
 import { mutateTaskData, getTaskValue } from '../services/appenTask.js';
 import { APPEN_BASIC_HEADERS } from '../constants.js';
+import HttpsProxyAgent from 'https-proxy-agent';
 
 axiosCookieJarSupport.wrapper(axios);
 
@@ -36,6 +37,7 @@ const createSessionForEachAccount = accounts => {
         const instance = axios.create({
             withCredentials: true,
             jar: cookieJar,
+            // httpAgent: new HttpsProxyAgent(account.proxy),
         });
         /*
     const fetch = fetchCookie(
@@ -79,7 +81,7 @@ export const setupAppenAccounts = async req => {
                 current_collecting_tasks: [],
                 tasks_waiting_for_resolution: [],
                 loginAttempts: 0,
-                start_collecting: function ({ id, name, level, payout, url }) {
+                start_collecting: function({ id, name, level, payout, url, scraping_delay }) {
                     const taskExists = this.current_collecting_tasks.find(task => task.id === id);
                     const collect = this.collect;
                     const accountThis = this;
@@ -97,13 +99,13 @@ export const setupAppenAccounts = async req => {
                             status: 'collecting',
                             error_text: '',
                             fetch_count: 0,
-                            pause: function () {
+                            pause: function() {
                                 this.status = 'paused';
                             },
-                            resume: function () {
+                            resume: function() {
                                 this.status = 'collecting';
                                 console.log('Resuming task', this.id, this.name);
-                                collect.call(accountThis, this.id);
+                                collect.call(accountThis, this.id, scraping_delay);
                             },
                         };
                         this.current_collecting_tasks.push(taskObject);
@@ -111,7 +113,7 @@ export const setupAppenAccounts = async req => {
 
                     this.collect.call(this, id);
                 },
-                collect: async function (task_id) {
+                collect: async function(task_id, scraping_delay) {
                     const task = this.current_collecting_tasks.find(task => task?.id === task_id);
                     const waiting_for_resolution = this.tasks_waiting_for_resolution.find(task => task?.id === task_id);
 
@@ -142,7 +144,7 @@ export const setupAppenAccounts = async req => {
                                             console.log('Login successful', this.email);
                                             setTimeout(() => {
                                                 this.collect.call(this, id);
-                                            }, 500);
+                                            }, scraping_delay);
                                         }
                                     }
                                 } else if (response_url.includes('view.appen.io')) {
@@ -207,7 +209,7 @@ export const setupAppenAccounts = async req => {
                                         );
                                         setTimeout(() => {
                                             this.collect.call(this, task_id);
-                                        }, 500);
+                                        }, scraping_delay);
                                     }
                                 }
                             } catch (err) {
