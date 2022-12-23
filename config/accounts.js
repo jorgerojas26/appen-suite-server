@@ -111,7 +111,7 @@ export const setupAppenAccounts = async req => {
                         this.current_collecting_tasks.push(taskObject);
                     }
 
-                    this.collect.call(this, id);
+                    this.collect.call(this, { task_id: id, scraping_delay });
                 },
                 collect: async function({ task_id, scraping_delay }) {
                     const task = this.current_collecting_tasks.find(task => task?.id === task_id);

@@ -112,7 +112,10 @@ app.post('/start', async (req, res) => {
 
         const task_list = await GET_APPEN_TASK_LIST(scraping_account, req, userId);
 
-        console.log('Task list', task_list);
+        console.log(
+            'Task list',
+            task_list.map(t => t[1])
+        );
 
         req.app.locals.accounts_info[userId].task_list = task_list.map(task => {
             const id = task[0];
