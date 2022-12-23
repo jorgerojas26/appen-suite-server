@@ -107,7 +107,7 @@ export const setupAppenAccounts = async req => {
                                     this.status = 'collecting';
                                     console.log('Resuming task', this.id, this.name);
                                     collect.call(accountThis, { task_id: this.id, scraping_delay });
-                                }, 3000);
+                                }, 10000);
                             },
                         };
                         this.current_collecting_tasks.push(taskObject);
