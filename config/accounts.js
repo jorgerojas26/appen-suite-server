@@ -105,7 +105,7 @@ export const setupAppenAccounts = async req => {
                             resume: function() {
                                 this.status = 'collecting';
                                 console.log('Resuming task', this.id, this.name);
-                                collect.call(accountThis, this.id, scraping_delay);
+                                collect.call(accountThis, { task_id: this.id, scraping_delay });
                             },
                         };
                         this.current_collecting_tasks.push(taskObject);
@@ -113,7 +113,7 @@ export const setupAppenAccounts = async req => {
 
                     this.collect.call(this, id);
                 },
-                collect: async function(task_id, scraping_delay) {
+                collect: async function({ task_id, scraping_delay }) {
                     const task = this.current_collecting_tasks.find(task => task?.id === task_id);
                     const waiting_for_resolution = this.tasks_waiting_for_resolution.find(task => task?.id === task_id);
 
@@ -143,7 +143,7 @@ export const setupAppenAccounts = async req => {
                                         if (!loginResponse.error) {
                                             console.log('Login successful', this.email);
                                             setTimeout(() => {
-                                                this.collect.call(this, id);
+                                                this.collect.call(this, { task_id: id, scraping_delay });
                                             }, scraping_delay);
                                         }
                                     }
@@ -208,7 +208,7 @@ export const setupAppenAccounts = async req => {
                                             this.current_collecting_tasks.find(task => task.id === task_id).fetch_count + 1
                                         );
                                         setTimeout(() => {
-                                            this.collect.call(this, task_id);
+                                            this.collect.call(this, { task_id, scraping_delay });
                                         }, scraping_delay);
                                     }
                                 }
