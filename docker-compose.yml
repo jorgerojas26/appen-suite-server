@@ -1,18 +1,31 @@
 version: "3"
 services:
-        appen-suite-server:
-                container_name: appen-suite-server
-                image: "jorgerojas26/appen-suite-server:latest"
-                restart: always
-                ports:
-                  - "8080:8080"
-                links:
-                  - mongo
-        mongo:
-                container_name: mongo
-                image: mongo
-                volumes:
-                  - ./data:/data/db
-                ports:
-                  - "27017:27017"
+  appen-suite-server:
+      container_name: appen-suite-server
+      image: "jorgerojas26/appen-suite-server:latest"
+      restart: always
+      ports:
+        - "8080:8080"
+      links:
+        - mongo
+  mongo:
+      container_name: mongo
+      image: mongo
+      volumes:
+        - ./data:/data/db
+      ports:
+        - "27017:27017"
+  firefox:
+        container_name: firefox
+        image: "jlesage/firefox"
+        volumes:
+          - ./data/firefox:/data/firefox
+        ports:
+          - "5800:5800"
+        extra_hosts:
+              - "host.docker.internal:host-gateway"
+        build:
+          context: .
+          args:
+            shm-size: "2g"
 
