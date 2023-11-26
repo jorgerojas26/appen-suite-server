@@ -20,7 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
     cors({
         origin: '*',
-    })
+    }),
 );
 
 app.use(express.static('public'));
@@ -86,8 +86,8 @@ app.post('/start', async (req, res) => {
         const random_proxy = proxies[Math.floor(Math.random() * proxies.length)];
         req.app.locals.accounts_info[userId].task_list_proxy = random_proxy;
     } else {
-        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
-            account.current_collecting_tasks.forEach(task => {
+        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map((account) => {
+            account.current_collecting_tasks.forEach((task) => {
                 console.log(task.status);
                 if (task.status === 'paused') {
                     task.resume();
@@ -97,7 +97,9 @@ app.post('/start', async (req, res) => {
         });
     }
 
-    const scraping_account = req.app.locals.accounts_info[userId].accounts.find(account => account.email === scraping_email);
+    const scraping_account = req.app.locals.accounts_info[userId].accounts.find(
+        (account) => account.email === scraping_email,
+    );
 
     if (!scraping_account) return res.status(400).send({ error: 'Account not found' });
     if (scraping_account.status === 'banned') return res.status(400).send({ error: 'Account is banned' });
@@ -106,18 +108,16 @@ app.post('/start', async (req, res) => {
     req.app.locals.accounts_info[userId].scraping_stopped = false;
 
     setTimeout(async function start_scraping() {
-        console.log('Starting scraping');
         if (req.app.locals.accounts_info[userId].scraping_stopped) return;
-        console.log('Getting task list');
 
         const task_list = await GET_APPEN_TASK_LIST(scraping_account, req, userId);
 
         console.log(
             'Task list',
-            task_list.map(t => t[1])
+            task_list.map((t) => t[1]),
         );
 
-        req.app.locals.accounts_info[userId].task_list = task_list.map(task => {
+        req.app.locals.accounts_info[userId].task_list = task_list.map((task) => {
             const id = task[0];
             const name = task[1];
             const numberOfTasks = task[4];
@@ -138,7 +138,7 @@ app.post('/start', async (req, res) => {
             };
         });
 
-        task_list.forEach(task => {
+        task_list.forEach((task) => {
             const id = task[0];
             const name = task[1];
             const level = task[2];
@@ -147,16 +147,25 @@ app.post('/start', async (req, res) => {
             const url = `https://account.appen.com/channels/feca/tasks/${id}?secret=${secret}`;
 
             const accounts_with_favorite = req.app.locals.accounts_info[userId].accounts.filter(
-                account =>
+                (account) =>
                     account.status === 'active' &&
-                    account.favorites.find(favorite => name.toLowerCase().includes(favorite.name.toLowerCase()) && favorite.active)
+                    account.favorites.find(
+                        (favorite) => name.toLowerCase().includes(favorite.name.toLowerCase()) && favorite.active,
+                    ),
             );
 
-            accounts_with_favorite.forEach(account => {
-                const taskExists = account.current_collecting_tasks.find(task => task.id === id);
+            accounts_with_favorite.forEach((account) => {
+                const taskExists = account.current_collecting_tasks.find((task) => task.id === id);
 
                 if (!taskExists || taskExists.status === 'expired') {
-                    account.start_collecting({ id, name, level, payout, url, scraping_delay });
+                    account.start_collecting({
+                        id,
+                        name,
+                        level,
+                        payout,
+                        url,
+                        scraping_delay,
+                    });
                 }
             });
         });
@@ -182,8 +191,8 @@ app.get('/stop', (req, res) => {
 
     if (req.app.locals.accounts_info && req.app.locals.accounts_info[userId]) {
         req.app.locals.accounts_info[userId].scraping_stopped = true;
-        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
-            account.current_collecting_tasks.forEach(task => task.pause());
+        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map((account) => {
+            account.current_collecting_tasks.forEach((task) => task.pause());
             return account;
         });
 
@@ -211,13 +220,13 @@ app.post('/tasks/:account_id/:task_id/resolve', (req, res) => {
     try {
         const scraping_stopped = req.app.locals.accounts_info[userId].scraping_stopped;
 
-        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
+        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map((account) => {
             if (account._id.toString() === account_id) {
-                account.tasks_waiting_for_resolution = account.tasks_waiting_for_resolution.filter(task => {
+                account.tasks_waiting_for_resolution = account.tasks_waiting_for_resolution.filter((task) => {
                     if (task.id !== task_id) {
                         req.app.locals.accounts_info[userId].current_busy_proxies = req.app.locals.accounts_info[
                             userId
-                        ].current_busy_proxies.filter(proxy => proxy._id.toString() !== task.proxy._id.toString());
+                        ].current_busy_proxies.filter((proxy) => proxy._id.toString() !== task.proxy._id.toString());
 
                         return false;
                     }
@@ -225,7 +234,7 @@ app.post('/tasks/:account_id/:task_id/resolve', (req, res) => {
                     return true;
                 });
 
-                account.current_collecting_tasks.forEach(task => {
+                account.current_collecting_tasks.forEach((task) => {
                     if (task.id.toString() === task_id) {
                         if (!scraping_stopped && task.status !== 'paused') {
                             task.resume();
@@ -249,9 +258,9 @@ app.post('/tasks/:account_id/:task_id/pause', (req, res) => {
     const userId = req.auth.user.id;
 
     try {
-        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
+        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map((account) => {
             if (account._id.toString() === account_id) {
-                account.current_collecting_tasks.forEach(task => {
+                account.current_collecting_tasks.forEach((task) => {
                     if (task.id.toString() === task_id) {
                         task.pause();
                     }
@@ -273,9 +282,9 @@ app.post('/tasks/:account_id/:task_id/resume', (req, res) => {
     const userId = req.auth.user.id;
 
     try {
-        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
+        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map((account) => {
             if (account._id.toString() === account_id) {
-                account.current_collecting_tasks.forEach(task => {
+                account.current_collecting_tasks.forEach((task) => {
                     if (task.id.toString() === task_id) {
                         task.resume();
                     }
@@ -297,8 +306,8 @@ app.post('/tasks/pause/:task_id', (req, res) => {
     const userId = req.auth.user.id;
 
     try {
-        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
-            account.current_collecting_tasks.forEach(task => {
+        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map((account) => {
+            account.current_collecting_tasks.forEach((task) => {
                 if (task.id.toString() === task_id) {
                     task.pause();
                 }
@@ -319,8 +328,8 @@ app.post('/tasks/resume/:task_id', (req, res) => {
     const userId = req.auth.user.id;
 
     try {
-        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
-            account.current_collecting_tasks.forEach(task => {
+        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map((account) => {
+            account.current_collecting_tasks.forEach((task) => {
                 if (task.id.toString() === task_id) {
                     task.resume();
                 }
@@ -338,21 +347,19 @@ app.post('/tasks/resume/:task_id', (req, res) => {
 app.post('/tasks/open', (req, res) => {
     const { tasks, accounts } = req.body;
 
-    console.log(tasks, accounts);
-
     const userId = req.auth.user.id;
 
     try {
-        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
+        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map((account) => {
             if (accounts.includes(account._id.toString())) {
-                account.tasks_waiting_for_resolution = account.tasks_waiting_for_resolution.map(task => {
+                account.tasks_waiting_for_resolution = account.tasks_waiting_for_resolution.map((task) => {
                     if (tasks.includes(task.id)) {
                         task.status = 'opened-in-browser';
                     }
                     return task;
                 });
 
-                account.current_collecting_tasks = account.current_collecting_tasks.map(task => {
+                account.current_collecting_tasks = account.current_collecting_tasks.map((task) => {
                     if (tasks.includes(task.id)) {
                         task.status = 'opened-in-browser';
                     }
@@ -378,19 +385,27 @@ app.delete('/tasks/:account_id/:task_id', (req, res) => {
     const userId = req.auth.user.id;
 
     try {
-        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map(account => {
+        req.app.locals.accounts_info[userId].accounts = req.app.locals.accounts_info[userId].accounts.map((account) => {
             if (account_id === 'undefined') {
-                account.current_collecting_tasks = account.current_collecting_tasks.filter(task => task.id != task_id);
-                account.tasks_waiting_for_resolution = account.tasks_waiting_for_resolution.filter(task => task.id != task_id);
+                account.current_collecting_tasks = account.current_collecting_tasks.filter(
+                    (task) => task.id != task_id,
+                );
+                account.tasks_waiting_for_resolution = account.tasks_waiting_for_resolution.filter(
+                    (task) => task.id != task_id,
+                );
             } else if (account._id.toString() === account_id) {
-                account.current_collecting_tasks.forEach(task => {
+                account.current_collecting_tasks.forEach((task) => {
                     if (task.id === task_id) {
                         task.pause();
                     }
                 });
-                account.current_collecting_tasks = account.current_collecting_tasks.filter(task => task.id !== task_id);
+                account.current_collecting_tasks = account.current_collecting_tasks.filter(
+                    (task) => task.id !== task_id,
+                );
 
-                account.tasks_waiting_for_resolution = account.tasks_waiting_for_resolution.filter(task => task.id !== task_id);
+                account.tasks_waiting_for_resolution = account.tasks_waiting_for_resolution.filter(
+                    (task) => task.id !== task_id,
+                );
             }
 
             return account;

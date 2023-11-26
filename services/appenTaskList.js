@@ -5,7 +5,7 @@ import { JSDOM } from 'jsdom';
 export const GET_APPEN_TASK_LIST = async (account, req, userId) => {
     if (!req.app.locals.iframe_url) {
         const iframe_url = await get_new_iframe_url(account, req, userId);
-        console.log('iframe_url', iframe_url);
+        // console.log('iframe_url', iframe_url);
 
         if (!iframe_url && account.loginAttempts === 3) {
             req.app.locals.accounts_info[userId].scraping_stopped = true;
@@ -20,8 +20,8 @@ export const GET_APPEN_TASK_LIST = async (account, req, userId) => {
             method: 'GET',
             url: req.app.locals.iframe_url,
         })
-        .catch(error => error);
-    console.log('taskListResponse', taskListResponse);
+        .catch((error) => error);
+    // console.log('taskListResponse', taskListResponse);
 
     if (taskListResponse.response?.status === 401) {
         let loginResponse = await appenLoginWithRetry(account);
@@ -39,9 +39,9 @@ export const GET_APPEN_TASK_LIST = async (account, req, userId) => {
 };
 
 const get_new_iframe_url = async (account, req, userId) => {
-    console.log('Getting iframe url');
-    const iframe_url_response = await account.axiosInstance(CONTRIBUTOR_IFRAME_URL).catch(error => error);
-    console.log('iframe_url_response', iframe_url_response);
+    // console.log('Getting iframe url');
+    const iframe_url_response = await account.axiosInstance(CONTRIBUTOR_IFRAME_URL).catch((error) => error);
+    // console.log('iframe_url_response', iframe_url_response);
 
     // Session expired or not logged in
     if (iframe_url_response.response?.status === 401) {
@@ -50,11 +50,11 @@ const get_new_iframe_url = async (account, req, userId) => {
     }
 
     req.app.locals.iframe_url = iframe_url_response?.data?.url;
-    console.log('iframe_url', req.app.locals.iframe_url);
+    // console.log('iframe_url', req.app.locals.iframe_url);
     return iframe_url_response?.data?.url;
 };
 
-const extract_task_list = html => {
+const extract_task_list = (html) => {
     const dom = new JSDOM(html);
 
     const task_list = dom.window.document.querySelector('[data-tasks]');
